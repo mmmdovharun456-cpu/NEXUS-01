@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="az" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXUS-01 | AI Robot Köməkçisi (2 OLED Göz Sistemi)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            color: #f3f4f6;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+        .font-cyber {
+            font-family: 'Orbitron', sans-serif;
+        }
+        /* OLED Ekran Parıltısı və Xüsusi Scrollbar */
+        .oled-glow {
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.15), inset 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0891b2;
+            border-radius: 3px;
+        }
+        /* Səs dalğası animasiyası */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.85; }
+            50% { transform: scale(1.08); opacity: 0.35; }
+            100% { transform: scale(0.95); opacity: 0.85; }
+        }
+        .listening-pulse {
+            animation: pulse-ring 1.4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between bg-[#02040a] text-slate-100 select-none">
+
+    <!-- Bildiriş Qutusu (alert() əvəzinə) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
+
+    <!-- Üst Panel: Başlıq və Bağlantı Düymələri -->
+    <header class="w-full px-4 py-3 bg-slate-950/90 border-b border-cyan-500/20 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-30 backdrop-blur-md">
+        <div class="flex items-center gap-2.5">
+            <div class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_10px_#22d3ee]"></div>
+            <h1 class="font-cyber text-lg sm:text-xl font-bold tracking-wider text-cyan-400">NEXUS<span class="text-white">-01</span></h1>
+            <span id="hw-status-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-cyan-300 border border-cyan-500/30 font-medium">
+                2x OLED • Avtonom
+            </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button id="btn-serial" class="px-3 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-cyan-300 text-xs font-medium flex items-center gap-1.5 transition active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                USB OTG
+            </button>
+            <button id="btn-hc06" class="px-3 py-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-900 border border-blue-400/50 text-blue-300 text-xs font-medium flex items-center gap-1.5 transition active:scale-95 shadow-[0_0_12px_rgba(59,130,246,0.2)]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+                HC-06 BT
+            </button>
+            <button id="btn-guide" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition active:scale-95" title="2 OLED Ekran və Arduino Təlimatı">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Əsas Məzmun: 2 Ayrı OLED Göz Ekranı + İdarəetmə -->
+    <main class="flex-1 w-full max-w-4xl mx-auto p-4 flex flex-col gap-4 justify-center">
+        
+        <!-- OLED Robot Üzü / 2 Ayrı Göz Ekranı Konteyneri -->
+        <div class="relative w-full bg-black rounded-3xl border-2 border-cyan-500/30 oled-glow overflow-hidden flex flex-col items-center justify-center p-2">
+            <!-- Üst Vəziyyət Göstəricisi -->
+            <div class="w-full flex justify-between items-center px-3 pt-1 text-[11px] font-cyber text-cyan-500/80">
+                <span id="robot-state-label">VƏZİYYƏT: GÖZLƏYİR</span>
+                <span id="current-date-badge" class="hidden sm:inline text-slate-400 font-sans text-[11px]">18 Noyabr 2026</span>
+                <span id="servo-angle-label">SERVO: 90°</span>
+            </div>
+
+            <!-- Canlı OLED Canvas (Sol Ekran = Sol Göz | Sağ Ekran = Sağ Göz) -->
+            <div id="canvas-wrapper" class="w-full h-52 sm:h-68 relative flex items-center justify-center">
+                <canvas id="oled-canvas" class="w-full h-full block rounded-2xl"></canvas>
+            </div>
+
+            <!-- Alt Dialoq / Subtitr Zolağı -->
+            <div class="w-full bg-slate-950/90 border-t border-cyan-500/20 px-4 py-3 rounded-b-2xl min-h-[80px] flex flex-col justify-center">
+                <p id="user-transcript" class="text-xs text-slate-400 italic truncate mb-1">Siz: ...</p>
+                <p id="ai-response-text" class="text-sm sm:text-base text-cyan-300 font-medium leading-snug line-clamp-3">
+                    Salam. Mən Nexus 01 robotuyam. İkili OLED göz sistemi aktivdir. Mikrofona toxunun və ya sualınızı yazın.
+                </p>
+            </div>
+        </div>
+
+        <!-- Səsli və Yazılı İdarəetmə Paneli -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+            
+            <!-- Mikrofon, Səs Rejimi və Sual Göndərmə (7 sütun) -->
+            <div class="md:col-span-7 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <!-- Böyük Mikrofon Düyməsi -->
+                    <button id="btn-mic" class="relative w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 flex items-center justify-center shadow-lg shadow-cyan-500/25 transition transform active:scale-95">
+                        <svg id="mic-icon" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                        </svg>
+                    </button>
+
+                    <div class="flex-1 flex flex-col gap-2">
+                        <div class="flex gap-2">
+                            <input id="text-prompt" type="text" placeholder="Sualınızı bura yazın..." 
+                                class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition">
+                            <button id="btn-send" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-sm transition active:scale-95 shrink-0">
+                                Soruş
+                            </button>
+                        </div>
+
+                        <!-- Səs Mühərriki Seçimi və Səsi Yoxla Düyməsi -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300 pt-0.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input id="chk-tts" type="checkbox" checked class="accent-cyan-500 rounded">
+                                    <span>Səs:</span>
+                                </label>
+                                <select id="tts-engine-select" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-cyan-300 outline-none">
+                                    <option value="cloud" selected>Gemini Təbii Kişi Səsi</option>
+                                    <option value="auto">Avto (AI + APK + Cihaz)</option>
+                                    <option value="apk">Android APK TTS</option>
+                                    <option value="browser">Cihaz / Brauzer TTS</option>
+                                </select>
+                                <select id="tts-voice-select" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-emerald-300 outline-none" title="Kişi Səs Profili">
+                                    <option value="Charon" selected>Charon (Sakit Kişi)</option>
+                                    <option value="Puck">Puck (Canlı Kişi)</option>
+                                    <option value="Fenrir">Fenrir (Dərin Kişi)</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button id="btn-test-voice" type="button" class="px-2.5 py-1 rounded-lg bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-[11px] font-medium transition active:scale-95">
+                                    🔊 Səsi Yoxla
+                                </button>
+                                <label class="flex items-center gap-1 cursor-pointer text-slate-400">
+                                    <input id="chk-auto-head" type="checkbox" checked class="accent-cyan-500 rounded">
+                                    <span>Baş</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Servo Motor (Baş Hərəkəti) Test Paneli (5 sütun) -->
+            <div class="md:col-span-5 bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between gap-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-cyber text-cyan-400 tracking-wide">BAŞ SERVO İDARƏSİ</span>
+                    <span id="slider-val-display" class="text-xs font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-cyan-300">90°</span>
+                </div>
+
+                <input id="servo-slider" type="range" min="15" max="165" value="90" 
+                    class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setHeadAngle(35, true)" class="py-2 px-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 transition active:scale-95">
+                        ← Sağa (35°)
+                    </button>
+                    <button onclick="setHeadAngle(90, true)" class="py-2 px-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-cyan-500/40 text-xs font-medium text-cyan-300 transition active:scale-95">
+                        • Mərkəz (90°)
+                    </button>
+                    <button onclick="setHeadAngle(145, true)" class="py-2 px-2 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-medium text-slate-200 transition active:scale-95">
+                        Sola (145°) →
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Serial / Hardware Log Paneli -->
+        <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2 flex items-center justify-between text-[11px] font-mono text-slate-400">
+            <div class="flex items-center gap-2 truncate">
+                <span class="text-cyan-500 font-bold">TX &gt;</span>
+                <span id="serial-log" class="truncate">Hazırdır (2x OLED: Sol=0x3C, Sağ=0x3D | Əmr: S:90 | E:IDLE)</span>
+            </div>
+            <button onclick="testHardwareSequence()" class="text-cyan-400 hover:text-cyan-300 underline shrink-0 ml-2">
+                Test Et
+            </button>
+        </div>
+    </main>
+
+    <!-- HC-06 Bluetooth Bağlantı və API Açar Paneli (Modal) -->
+    <div id="hc06-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-blue-500/40 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                <h2 class="font-cyber text-base text-blue-400 font-bold flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping"></span>
+                    HC-06 BLUETOOTH & API (2026)
+                </h2>
+                <button id="btn-close-hc06" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">✕</button>
+            </div>
+            
+            <div class="p-5 space-y-4 text-xs sm:text-sm text-slate-300">
+                <!-- HC-06 Status və Qoşulma -->
+                <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 font-medium">HC-06 Modul Vəziyyəti:</span>
+                        <span id="hc06-modal-status" class="px-2.5 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40 text-xs font-mono">
+                            Gözləyir (Bridge Hazır)
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-2">
+                        <button id="btn-connect-bridge" class="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition active:scale-95 flex items-center justify-center gap-2">
+                            <span>HC-06 Qoşulmanı Aktivləşdir (APK / Bridge)</span>
+                        </button>
+                        <button id="btn-connect-ble-fallback" class="w-full py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium text-xs transition active:scale-95">
+                            Alternativ: Brauzer Bluetooth / BLE Skan Et
+                        </button>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-800/80">
+                        <label class="block text-[11px] text-slate-400 mb-1">HC-06-ya Əl ilə Test Əmri Göndər:</label>
+                        <div class="flex gap-2">
+                            <input id="manual-bt-cmd" type="text" value="S:45" placeholder="Məs: S:90 və ya E:SPEAK" 
+                                class="flex-1 bg-black border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-cyan-300 outline-none">
+                            <button onclick="sendManualBtCmd()" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium">
+                                Göndər
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daxil Edilmiş API Açarı -->
+                <div class="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-semibold text-cyan-400">Gemini API Açarı (Aktiv):</label>
+                        <span class="text-[10px] text-emerald-400 font-mono">● Yadda saxlanılıb</span>
+                    </div>
+                    <input id="api-key-input" type="password" value=""  placeholder="Gemini API açarını bura yazın" 
+                        class="w-full bg-black border border-slate-700 rounded-lg px-2.5 py-1.5 font-mono text-xs text-slate-300 outline-none">
+                    <div class="flex justify-between items-center pt-1">
+                        <button onclick="toggleApiKeyVisibility()" class="text-[11px] text-slate-400 hover:text-white underline">Açarı göstər/gizlə</button>
+                        <button onclick="saveCustomApiKey()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs">Yenilə</button>
+                    </div>
+                </div>
+
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    <strong>Qeyd:</strong> APK içində həm HC-06 əmrləri, həm də <code class="text-emerald-300">TTS:mətn</code> səs əmrləri avtomatik ötürülür.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Təlimat Modalı (APK + HC-06 + 2x OLED Arduino Kodu və Qoşulma Sxemi) -->
+    <div id="guide-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-cyan-500/40 rounded-3xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                <h2 class="font-cyber text-base sm:text-lg text-cyan-400 font-bold">2x OLED Ekran (Sol & Sağ Göz) + Arduino Kodu</h2>
+                <button id="btn-close-guide" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">
+                    ✕
+                </button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto space-y-5 text-sm text-slate-300 leading-relaxed">
+                <!-- Addım 1: 2 OLED Ekran I2C Ünvan Ayarı -->
+                <div class="bg-slate-950/70 p-4 rounded-2xl border border-cyan-500/30">
+                    <h3 class="text-cyan-400 font-bold mb-1.5 flex items-center gap-2">
+                        <span class="bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded text-xs">1</span>
+                        2 Ədəd OLED Ekranın Qoşulması (I2C Ünvanı)
+                    </h3>
+                    <p class="text-xs text-slate-300 mb-2">
+                        İki ədəd SSD1306 (0.96" və ya 1.3") I2C OLED ekranı Arduino-ya paralel (ikisinin də <strong>SDA → A4</strong>, <strong>SCL → A5</strong>, <strong>VCC → 5V</strong>, <strong>GND → GND</strong>) qoşmaq üçün ekranların ünvanları fərqli olmalıdır:
+                    </p>
+                    <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                        <li><strong>SOL EKRAN (Sol Göz):</strong> Zavod ayarında olduğu kimi qalır → Ünvan: <code class="text-emerald-400 font-bold">0x3C</code></li>
+                        <li><strong>SAĞ EKRAN (Sağ Göz):</strong> Ekranın arxasındakı <code class="text-amber-300">0x78 / 0x7A</code> rezistorunu sağa (<code class="text-amber-300">0x7A</code>) keçirin → Ünvan: <code class="text-cyan-400 font-bold">0x3D</code></li>
+                    </ul>
+                </div>
+
+                <!-- Addım 2: Qoşulma sxemi -->
+                <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800">
+                    <h3 class="text-cyan-300 font-bold mb-1.5 flex items-center gap-2">
+                        <span class="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs">2</span>
+                        Arduino + HC-06 + 2x OLED + Servo Sxemi
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono bg-black/50 p-3 rounded-xl border border-slate-800">
+                        <div>
+                            <p class="text-blue-400 font-bold mb-1">HC-06 Bluetooth:</p>
+                            <p>• VCC → 5V</p>
+                            <p>• GND → GND</p>
+                            <p>• TXD → Arduino D2</p>
+                            <p>• RXD → Arduino D3</p>
+                        </div>
+                        <div>
+                            <p class="text-cyan-400 font-bold mb-1">2x SSD1306 OLED:</p>
+                            <p>• Sol Ekran: 0x3C</p>
+                            <p>• Sağ Ekran: 0x3D</p>
+                            <p>• İkisi də SDA → A4</p>
+                            <p>• İkisi də SCL → A5</p>
+                        </div>
+                        <div>
+                            <p class="text-indigo-400 font-bold mb-1">SG90 Servo:</p>
+                            <p>• Qırmızı → 5V</p>
+                            <p>• Qəhvəyi → GND</p>
+                            <p>• Narıncı → Arduino D9</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Addım 3: 2 OLED Ekranlı Arduino + HC-06 Kodu -->
+                <div class="bg-slate-950/70 p-4 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-cyan-300 font-bold flex items-center gap-2">
+                            <span class="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded text-xs">3</span>
+                            Arduino Uno / Nano (Sol Ekran = Sol Göz, Sağ Ekran = Sağ Göz)
+                        </h3>
+                        <button onclick="copyArduinoCode()" class="px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium">
+                            Kodu Kopyala
+                        </button>
+                    </div>
+                    <pre id="arduino-code" class="text-[11px] font-mono bg-black p-3 rounded-xl border border-slate-800 overflow-x-auto text-emerald-400">#include &lt;Wire.h&gt;
+#include &lt;Adafruit_GFX.h&gt;
+#include &lt;Adafruit_SSD1306.h&gt;
+#include &lt;Servo.h&gt;
+#include &lt;SoftwareSerial.h&gt;
+
+// NEXUS-01 Dual OLED Firmware (Sol Ekran = Sol Göz, Sağ Ekran = Sağ Göz)
+// HC-06: RX = Pin 2 (HC-06 TXD), TX = Pin 3 (HC-06 RXD)
+SoftwareSerial btSerial(2, 3);
+
+// 2 Ayrı OLED Ekran Obyekti (128x64)
+Adafruit_SSD1306 leftEyeDisplay(128, 64, &Wire, -1);   // Sol Ekran (Ünvan: 0x3C)
+Adafruit_SSD1306 rightEyeDisplay(128, 64, &Wire, -1);  // Sağ Ekran (Ünvan: 0x3D)
+
+Servo headServo;
+String state = "IDLE";
+int servoPin = 9;
+unsigned long lastBlink = 0;
+
+void setup() {
+  Serial.begin(9600);
+  btSerial.begin(9600);
+  
+  headServo.attach(servoPin);
+  headServo.write(90);
+  
+  // Sol və Sağ OLED ekranları ayrı-ayrılıqda işə salırıq
+  leftEyeDisplay.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  rightEyeDisplay.begin(SSD1306_SWITCHCAPVCC, 0x3D);
+  
+  drawBothEyes("IDLE", 90, false);
+}
+
+void loop() {
+  if (btSerial.available()) {
+    String cmd = btSerial.readStringUntil('\n');
+    processCommand(cmd);
+  }
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    processCommand(cmd);
+  }
+
+  // Təbii göz qırpma effekti (hər 3.8 saniyədən bir)
+  // Dinləyərkən / düşünərkən / danışarkən daha tez-tez qırpır
+  unsigned long blinkEvery = (state == "IDLE") ? 3800 : 1500;
+  if (millis() - lastBlink > blinkEvery) {
+    lastBlink = millis();
+    int ang = headServo.read();
+    drawBothEyes(state, ang, true);
+    delay(110);
+    drawBothEyes(state, ang, false);
+  }
+}
+
+void processCommand(String cmd) {
+  cmd.trim();
+  if (cmd.startsWith("S:")) {
+    int angle = cmd.substring(2).toInt();
+    angle = constrain(angle, 15, 165);
+    headServo.write(angle);
+    drawBothEyes(state, angle, false);
+  } else if (cmd.startsWith("E:")) {
+    state = cmd.substring(2);
+    drawBothEyes(state, headServo.read(), false);
+  }
+}
+
+// Hər ekrana öz gözünü çəkən funksiya
+void renderSingleEye(Adafruit_SSD1306 &oled, String st, int angle, bool blink, bool isRightEye) {
+  oled.clearDisplay();
+  
+  // Servo bucağına görə göz bəbəyinin sağa/sola baxması
+  int offsetX = map(angle, 15, 165, 22, -22);
+  int eyeW = 64;
+  int eyeH = blink ? 4 : ((st == "SPEAK") ? 46 : (st == "LISTEN" ? 50 : 40));
+  
+  int x = (128 - eyeW) / 2 + offsetX;
+  int y = (64 - eyeH) / 2;
+
+  oled.fillRoundRect(x, y, eyeW, eyeH, blink ? 2 : 12, SSD1306_WHITE);
+
+  if (!blink) {
+    // Düşünmə (THINK) rejimində göz qapağı effekti
+    if (st == "THINK") {
+      oled.fillRect(x - 2, y - 2, eyeW + 4, 14, SSD1306_BLACK);
+    }
+    // Göz parıltısı (Sol və sağ gözə uyğun simmetrik parlaqlıq)
+    int glintX = isRightEye ? (x + 14) : (x + 16);
+    oled.fillCircle(glintX, y + 12, 4, SSD1306_BLACK);
+  }
+  oled.display();
+}
+
+void drawBothEyes(String st, int angle, bool blink) {
+  renderSingleEye(leftEyeDisplay, st, angle, blink, false);  // Sol ekranda Sol Göz
+  renderSingleEye(rightEyeDisplay, st, angle, blink, true);  // Sağ ekranda Sağ Göz
+}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. QLOBAL VƏZİYYƏT VƏ DƏYİŞƏNLƏR
+        // ==========================================
+        const DEFAULT_API_KEY = "";
+        let apiKey = localStorage.getItem("nexus_api_key_2026") || DEFAULT_API_KEY;
+        let robotState = "IDLE"; // IDLE | LISTEN | THINK | SPEAK
+        let currentServoAngle = 90;
+        let targetLookX = 0;
+        let currentLookX = 0;
+        let blinkAmount = 0;
+        let isBlinking = false;
+        let headMoveInterval = null;
+        let eyeScanInterval = null;
+        let eyeScanX = 0;
+        let blinkTimeout = null;
+
+        // Hardware Bağlantı Dəyişənləri
+        let serialPort = null;
+        let serialWriter = null;
+        let bleCharacteristic = null;
+        let hc06BridgeActive = false;
+
+        // Audio / TTS Dəyişənləri
+        let currentAudioElement = null;
+        let audioCtx = null;
+
+        // DOM Elementləri
+        const canvas = document.getElementById("oled-canvas");
+        const ctx = canvas.getContext("2d");
+        const canvasWrapper = document.getElementById("canvas-wrapper");
+        const stateLabel = document.getElementById("robot-state-label");
+        const servoAngleLabel = document.getElementById("servo-angle-label");
+        const sliderValDisplay = document.getElementById("slider-val-display");
+        const servoSlider = document.getElementById("servo-slider");
+        const userTranscriptEl = document.getElementById("user-transcript");
+        const aiResponseEl = document.getElementById("ai-response-text");
+        const serialLogEl = document.getElementById("serial-log");
+        const btnMic = document.getElementById("btn-mic");
+        const textPrompt = document.getElementById("text-prompt");
+        const chkTts = document.getElementById("chk-tts");
+        const ttsEngineSelect = document.getElementById("tts-engine-select");
+        const ttsVoiceSelect = document.getElementById("tts-voice-select");
+        const chkAutoHead = document.getElementById("chk-auto-head");
+
+        // ==========================================
+        // 2. CARİ TARİX (18 NOYABR 2026) FORMATLAMA
+        // ==========================================
+        function getCurrentDateAzerbaijani() {
+            const months = [
+                "Yanvar", "Fevral", "Mart", "Aprel", "May", "İyun",
+                "İyul", "Avqust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr"
+            ];
+            const weekdays = [
+                "Bazar", "Bazar ertəsi", "Çərşənbə axşamı", "Çərşənbə",
+                "Cümə axşamı", "Cümə", "Şənbə"
+            ];
+            const now = new Date();
+            if (now.getFullYear() < 2026) {
+                return "18 Noyabr 2026, Çərşənbə";
+            }
+            const year = now.getFullYear();
+            const day = now.getDate();
+            const month = months[now.getMonth()];
+            const weekday = weekdays[now.getDay()];
+            return `${day} ${month} ${year}, ${weekday}`;
+        }
+
+        // ==========================================
+        // 3. BİLDİRİŞ SİSTEMİ (ALERT ƏVƏZİNƏ)
+        // ==========================================
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            const colors = {
+                info: "bg-slate-900/95 border-cyan-500/50 text-cyan-200",
+                success: "bg-emerald-950/95 border-emerald-500/50 text-emerald-200",
+                error: "bg-rose-950/95 border-rose-500/50 text-rose-200"
+            };
+            toast.className = `px-4 py-3 rounded-xl border text-xs font-medium shadow-lg backdrop-blur-md transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // ==========================================
+        // 4. SERVO MOTOR VƏ VƏZİYYƏT İDARƏETMƏSİ
+        // ==========================================
+        function setHeadAngle(angle, manual = false) {
+            const clamped = Math.max(15, Math.min(165, Math.round(angle)));
+            currentServoAngle = clamped;
+            servoSlider.value = clamped;
+            servoAngleLabel.textContent = `SERVO: ${clamped}°`;
+            sliderValDisplay.textContent = `${clamped}°`;
+
+            targetLookX = (90 - clamped) / 75;
+            sendHardwareCommand(`S:${clamped}`);
+
+            if (manual) {
+                clearInterval(headMoveInterval);
+            }
+        }
+
+        servoSlider.addEventListener("input", (e) => {
+            setHeadAngle(parseInt(e.target.value), true);
+        });
+
+        function setRobotState(newState) {
+            robotState = newState;
+            const labels = {
+                IDLE: "VƏZİYYƏT: GÖZLƏYİR",
+                LISTEN: "VƏZİYYƏT: DİNLƏYİR...",
+                THINK: "VƏZİYYƏT: DÜŞÜNÜR...",
+                SPEAK: "VƏZİYYƏT: DANIŞIR"
+            };
+            stateLabel.textContent = labels[newState] || newState;
+            sendHardwareCommand(`E:${newState}`);
+
+            clearInterval(headMoveInterval);
+            clearInterval(eyeScanInterval);
+            eyeScanX = 0;
+
+            // Gözlərin sağa-sola baxması (OLED ekranda) - başın hərəkətindən asılı olmayaraq
+            if (newState !== "IDLE") {
+                const scanSpeed = newState === "SPEAK" ? 900 : (newState === "THINK" ? 650 : 1100);
+                const scanPoints = [-0.8, 0.7, -0.4, 0.9, 0, -0.9, 0.5];
+                let si = 0;
+                eyeScanX = scanPoints[0];
+                eyeScanInterval = setInterval(() => {
+                    si = (si + 1) % scanPoints.length;
+                    eyeScanX = scanPoints[si];
+                }, scanSpeed);
+            }
+            scheduleNextBlink(true);
+
+            if (!chkAutoHead.checked) return;
+
+            if (newState === "LISTEN") {
+                // Dinləyərkən baş yavaşca sağa-sola çevrilir
+                const listenAngles = [70, 112, 80, 105, 90];
+                let li = 0;
+                setHeadAngle(listenAngles[0]);
+                headMoveInterval = setInterval(() => {
+                    li = (li + 1) % listenAngles.length;
+                    setHeadAngle(listenAngles[li]);
+                }, 1300);
+            } else if (newState === "THINK") {
+                // Düşünərkən baş kiçik sürətli hərəkətlə yellənir
+                const thinkAngles = [55, 75, 60, 80];
+                let ti = 0;
+                setHeadAngle(thinkAngles[0]);
+                headMoveInterval = setInterval(() => {
+                    ti = (ti + 1) % thinkAngles.length;
+                    setHeadAngle(thinkAngles[ti]);
+                }, 700);
+            } else if (newState === "SPEAK") {
+                const speakAngles = [55, 125, 70, 110, 90];
+                let idx = 0;
+                setHeadAngle(speakAngles[0]);
+                headMoveInterval = setInterval(() => {
+                    idx = (idx + 1) % speakAngles.length;
+                    setHeadAngle(speakAngles[idx]);
+                }, 850);
+            } else if (newState === "IDLE") {
+                setHeadAngle(90);
+            }
+        }
+
+        // ==========================================
+        // 5. İKİLİ OLED EKRAN GÖZ ANİMASİYASI (SOL EKRAN = SOL GÖZ, SAĞ EKRAN = SAĞ GÖZ)
+        // ==========================================
+        function resizeCanvas() {
+            const rect = canvasWrapper.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+
+        function doBlink() {
+            if (isBlinking) return;
+            isBlinking = true;
+            let step = 0;
+            const blinkTimer = setInterval(() => {
+                step += 0.25;
+                if (step <= 1) {
+                    blinkAmount = step;
+                } else if (step <= 2) {
+                    blinkAmount = 2 - step;
+                } else {
+                    blinkAmount = 0;
+                    isBlinking = false;
+                    clearInterval(blinkTimer);
+                }
+            }, 25);
+        }
+
+        // Vəziyyətə görə göz qırpma: dinləyəndə/düşünəndə/danışanda tez-tez, boşda nadir
+        function scheduleNextBlink(immediate = false) {
+            clearTimeout(blinkTimeout);
+            const busy = robotState !== "IDLE";
+            const delay = immediate ? 150 : (busy ? 900 + Math.random() * 900 : 2500 + Math.random() * 2000);
+            blinkTimeout = setTimeout(() => {
+                doBlink();
+                // Danışarkən bəzən ikiqat qırpma
+                if (busy && Math.random() > 0.65) setTimeout(doBlink, 260);
+                scheduleNextBlink();
+            }, delay);
+        }
+        scheduleNextBlink();
+
+        function drawOledFace(timestamp) {
+            const w = canvasWrapper.clientWidth;
+            const h = canvasWrapper.clientHeight;
+            const halfW = w / 2;
+
+            // Ümumi Qara Fon
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, w, h);
+
+            // OLED Scanline Effekti
+            ctx.strokeStyle = "rgba(6, 182, 212, 0.04)";
+            ctx.lineWidth = 1;
+            for (let y = 0; y < h; y += 4) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Vəziyyətə görə rəng
+            let eyeColor = "#22d3ee";
+            if (robotState === "LISTEN") eyeColor = "#34d399";
+            if (robotState === "THINK") eyeColor = "#fbbf24";
+            if (robotState === "SPEAK") eyeColor = "#38bdf8";
+
+            const desiredLookX = Math.max(-1, Math.min(1, targetLookX + eyeScanX));
+            currentLookX += (desiredLookX - currentLookX) * 0.14;
+
+            // ------------------------------------------------
+            // İKİ AYRI OLED EKRAN ÇƏRÇİVƏSİ (SOL VƏ SAĞ EKRAN)
+            // ------------------------------------------------
+            const pad = 8;
+            const screenGap = 6;
+            const screenW = halfW - pad - screenGap;
+            const screenH = h - pad * 2;
+
+            const leftScreenX = pad;
+            const rightScreenX = halfW + screenGap;
+            const screenY = pad;
+
+            // Sol və Sağ OLED Ekran Sərhədləri (Split-Screen / Dual Display Vizualı)
+            ctx.save();
+            ctx.strokeStyle = "rgba(34, 211, 238, 0.22)";
+            ctx.lineWidth = 1.5;
+            drawRoundRect(ctx, leftScreenX, screenY, screenW, screenH, 14);
+            ctx.stroke();
+            drawRoundRect(ctx, rightScreenX, screenY, screenW, screenH, 14);
+            ctx.stroke();
+
+            // Ekran Etiketləri (SOL EKRAN / SAĞ EKRAN)
+            ctx.fillStyle = "rgba(148, 163, 184, 0.45)";
+            ctx.font = "600 9px Orbitron, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText("SOL EKRAN (0x3C)", leftScreenX + 10, screenY + 14);
+            ctx.textAlign = "right";
+            ctx.fillText("SAĞ EKRAN (0x3D)", rightScreenX + screenW - 10, screenY + 14);
+            ctx.restore();
+
+            // Hər OLED Ekranın Öz Mərkəzi
+            const leftScreenCenterX = leftScreenX + screenW / 2;
+            const rightScreenCenterX = rightScreenX + screenW / 2;
+            const centerY = screenY + screenH / 2 + 4;
+
+            // Hər ekranın daxilində göz ölçüləri
+            const eyeWidth = Math.min(screenW * 0.48, 115);
+            let baseEyeHeight = Math.min(screenH * 0.56, 115);
+
+            if (robotState === "SPEAK") {
+                const pulse = Math.sin(timestamp * 0.02) * 14;
+                baseEyeHeight += pulse;
+            } else if (robotState === "LISTEN") {
+                baseEyeHeight *= 1.12;
+            }
+
+            const currentHeight = Math.max(6, baseEyeHeight * (1 - blinkAmount));
+            const maxLookOffset = (screenW - eyeWidth) * 0.45;
+            const lookOffsetX = currentLookX * maxLookOffset;
+
+            // 1) SOL EKRANDA SOL GÖZ
+            const leftEyeX = leftScreenCenterX - (eyeWidth / 2) + lookOffsetX;
+            // 2) SAĞ EKRANDA SAĞ GÖZ
+            const rightEyeX = rightScreenCenterX - (eyeWidth / 2) + lookOffsetX;
+
+            // Sol Ekran Kəsim (Clip) Sahəsi - Göz yalnız öz OLED ekranı daxilində qalır
+            ctx.save();
+            drawRoundRect(ctx, leftScreenX + 2, screenY + 2, screenW - 4, screenH - 4, 12);
+            ctx.clip();
+
+            ctx.fillStyle = eyeColor;
+            ctx.shadowColor = eyeColor;
+            ctx.shadowBlur = 24;
+            drawRoundRect(ctx, leftEyeX, centerY - currentHeight / 2, eyeWidth, currentHeight, 22);
+            ctx.fill();
+
+            if (robotState === "THINK" && blinkAmount < 0.2) {
+                ctx.fillStyle = "#000000";
+                ctx.shadowBlur = 0;
+                ctx.fillRect(leftEyeX - 5, centerY - currentHeight / 2 - 5, eyeWidth + 10, currentHeight * 0.38);
+            }
+            if (currentHeight > 25) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.48)";
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(leftEyeX + eyeWidth * 0.28, centerY - currentHeight * 0.22, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // Sağ Ekran Kəsim (Clip) Sahəsi - Göz yalnız öz OLED ekranı daxilində qalır
+            ctx.save();
+            drawRoundRect(ctx, rightScreenX + 2, screenY + 2, screenW - 4, screenH - 4, 12);
+            ctx.clip();
+
+            ctx.fillStyle = eyeColor;
+            ctx.shadowColor = eyeColor;
+            ctx.shadowBlur = 24;
+            drawRoundRect(ctx, rightEyeX, centerY - currentHeight / 2, eyeWidth, currentHeight, 22);
+            ctx.fill();
+
+            if (robotState === "THINK" && blinkAmount < 0.2) {
+                ctx.fillStyle = "#000000";
+                ctx.shadowBlur = 0;
+                ctx.fillRect(rightEyeX - 5, centerY - currentHeight / 2 - 5, eyeWidth + 10, currentHeight * 0.38);
+            }
+            if (currentHeight > 25) {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.48)";
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(rightEyeX + eyeWidth * 0.28, centerY - currentHeight * 0.22, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            requestAnimationFrame(drawOledFace);
+        }
+
+        function drawRoundRect(ctx, x, y, width, height, radius) {
+            const r = Math.min(radius, width / 2, height / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + width, y, x + width, y + height, r);
+            ctx.arcTo(x + width, y + height, x, y + height, r);
+            ctx.arcTo(x, y + height, x, y, r);
+            ctx.arcTo(x, y, x + width, y, r);
+            ctx.closePath();
+        }
+
+        // ==========================================
+        // 6. HARDWARE BAĞLANTISI (HC-06 BRIDGE, SERIAL & BLE)
+        // ==========================================
+        async function sendHardwareCommand(cmd) {
+            const payloadWithNewline = cmd + "\n";
+            if (!cmd.startsWith("TTS:")) {
+                serialLogEl.textContent = `${cmd}  (Sol OLED: 0x3C | Sağ OLED: 0x3D)`;
+            }
+
+            // 1. HC-06 və Android APK Bridge
+            try {
+                if (window.AppInventor && typeof window.AppInventor.setWebViewString === "function") {
+                    window.AppInventor.setWebViewString(payloadWithNewline);
+                }
+                if (window.AndroidBluetooth && typeof window.AndroidBluetooth.sendData === "function") {
+                    window.AndroidBluetooth.sendData(payloadWithNewline);
+                }
+                if (window.Android && typeof window.Android.sendBluetooth === "function") {
+                    window.Android.sendBluetooth(payloadWithNewline);
+                }
+            } catch (bridgeErr) {
+                console.warn("APK Bridge xətası:", bridgeErr);
+            }
+
+            // TTS əmri yalnız APK Bridge üçündür, Serial/BLE-yə göndərilmir
+            if (cmd.startsWith("TTS:")) return;
+
+            // 2. USB OTG (Web Serial API)
+            if (serialWriter) {
+                try {
+                    const encoder = new TextEncoder();
+                    await serialWriter.write(encoder.encode(payloadWithNewline));
+                } catch (err) {
+                    console.warn("Serial yazma xətası:", err);
+                }
+            }
+
+            // 3. Bluetooth Low Energy (Web Bluetooth API)
+            if (bleCharacteristic) {
+                try {
+                    const encoder = new TextEncoder();
+                    await bleCharacteristic.writeValueWithoutResponse(encoder.encode(payloadWithNewline));
+                } catch (err) {
+                    console.warn("BLE yazma xətası:", err);
+                }
+            }
+        }
+
+        const hc06Modal = document.getElementById("hc06-modal");
+        document.getElementById("btn-hc06").addEventListener("click", () => {
+            hc06Modal.classList.remove("hidden");
+            hc06Modal.classList.add("flex");
+            checkBridgeEnvironment();
+        });
+        document.getElementById("btn-close-hc06").addEventListener("click", () => {
+            hc06Modal.classList.add("hidden");
+            hc06Modal.classList.remove("flex");
+        });
+
+        function checkBridgeEnvironment() {
+            const statusEl = document.getElementById("hc06-modal-status");
+            const badgeEl = document.getElementById("hw-status-badge");
+            if (window.AppInventor || window.AndroidBluetooth || window.Android || window.AndroidTTS) {
+                hc06BridgeActive = true;
+                statusEl.textContent = "APK Bridge Aktiv (HC-06)";
+                statusEl.className = "px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-xs font-mono";
+                badgeEl.textContent = "2x OLED • HC-06 APK";
+                badgeEl.className = "text-[10px] px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-500/40 font-medium";
+            }
+        }
+
+        document.getElementById("btn-connect-bridge").addEventListener("click", () => {
+            checkBridgeEnvironment();
+            sendHardwareCommand("E:IDLE");
+            sendHardwareCommand("S:90");
+            if (hc06BridgeActive) {
+                showToast("HC-06 APK Bridge ilə əlaqə təsdiqləndi!", "success");
+            } else {
+                showToast("HC-06 Bridge rejimi aktivdir. APK içində açdıqda HC-06-ya ötürəcək.", "info");
+                document.getElementById("hw-status-badge").textContent = "2x OLED • HC-06";
+            }
+        });
+
+        function sendManualBtCmd() {
+            const cmd = document.getElementById("manual-bt-cmd").value.trim();
+            if (!cmd) return;
+            sendHardwareCommand(cmd);
+            if (cmd.startsWith("S:")) {
+                const ang = parseInt(cmd.substring(2));
+                if (!isNaN(ang)) setHeadAngle(ang, true);
+            }
+            showToast(`HC-06-ya göndərildi: ${cmd}`, "success");
+        }
+
+        function toggleApiKeyVisibility() {
+            const inp = document.getElementById("api-key-input");
+            inp.type = inp.type === "password" ? "text" : "password";
+        }
+
+        function saveCustomApiKey() {
+            const val = document.getElementById("api-key-input").value.trim();
+            if (val) {
+                apiKey = val;
+                localStorage.setItem("nexus_api_key_2026", val);
+                showToast("API açarı yadda saxlanıldı!", "success");
+            }
+        }
+
+        document.getElementById("btn-serial").addEventListener("click", async () => {
+            if (!("serial" in navigator)) {
+                showToast("Bu brauzer/APK Web Serial dəstəkləmir. HC-06 BT yoxlayın.", "error");
+                return;
+            }
+            try {
+                serialPort = await navigator.serial.requestPort();
+                await serialPort.open({ baudRate: 9600 });
+                serialWriter = serialPort.writable.getWriter();
+                document.getElementById("hw-status-badge").textContent = "2x OLED • USB";
+                showToast("Arduino USB ilə uğurla qoşuldu!", "success");
+                sendHardwareCommand("E:IDLE");
+                sendHardwareCommand("S:90");
+            } catch (err) {
+                showToast("USB bağlantısı ləğv edildi.", "error");
+            }
+        });
+
+        document.getElementById("btn-connect-ble-fallback").addEventListener("click", async () => {
+            if (!("bluetooth" in navigator)) {
+                showToast("Bu cihazda Web Bluetooth aktiv deyil.", "error");
+                return;
+            }
+            try {
+                const uartServiceUUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+                const rxCharUUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [uartServiceUUID]
+                });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(uartServiceUUID);
+                bleCharacteristic = await service.getCharacteristic(rxCharUUID);
+
+                document.getElementById("hw-status-badge").textContent = "2x OLED • BLE";
+                showToast(`Bluetooth qoşuldu: ${device.name || "Cihaz"}`, "success");
+            } catch (err) {
+                showToast("Bluetooth bağlantısı alınmadı (HC-06 üçün APK Bridge istifadə edin).", "error");
+            }
+        });
+
+        function testHardwareSequence() {
+            showToast("Sol və Sağ OLED ekran + Baş testi başladıldı...", "info");
+            setRobotState("LISTEN");
+            setTimeout(() => setRobotState("SPEAK"), 2000);
+            setTimeout(() => setRobotState("IDLE"), 4500);
+        }
+
+        // ==========================================
+        // 7. ÇOXPİLLƏLİ AYDIN SƏS SİSTEMİ (TTS)
+        // ==========================================
+        function unlockAudioContext() {
+            try {
+                if (!audioCtx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) audioCtx = new AudioContextClass();
+                }
+                if (audioCtx && audioCtx.state === "suspended") {
+                    audioCtx.resume();
+                }
+            } catch (e) {}
+        }
+
+        function stopAllSpeech() {
+            if ("speechSynthesis" in window) {
+                window.speechSynthesis.cancel();
+            }
+            if (currentAudioElement) {
+                currentAudioElement.pause();
+                currentAudioElement.src = "";
+                currentAudioElement = null;
+            }
+        }
+
+        function normalizeTextForClassicTTS(rawText) {
+            return rawText
+                .replace(/[*#_`~>\[\]()]/g, " ")
+                .replace(/NEXUS-01/gi, "Nexus 01")
+                .replace(/ə/g, "e")
+                .replace(/Ə/g, "E")
+                .replace(/([.!?,:;])\s*/g, "$1 ")
+                .replace(/\s+/g, " ")
+                .trim();
+        }
+
+        function pcmBase64ToWavUrl(base64Pcm, sampleRate = 24000) {
+            const binaryString = atob(base64Pcm);
+            const pcmLength = binaryString.length;
+            const wavBuffer = new ArrayBuffer(44 + pcmLength);
+            const view = new DataView(wavBuffer);
+
+            const writeStr = (offset, str) => {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+            };
+
+            writeStr(0, "RIFF");
+            view.setUint32(4, 36 + pcmLength, true);
+            writeStr(8, "WAVE");
+            writeStr(12, "fmt ");
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeStr(36, "data");
+            view.setUint32(40, pcmLength, true);
+
+            const pcmBytes = new Uint8Array(wavBuffer, 44);
+            for (let i = 0; i < pcmLength; i++) {
+                pcmBytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const blob = new Blob([wavBuffer], { type: "audio/wav" });
+            return URL.createObjectURL(blob);
+        }
+
+        async function speakWithGeminiCloudTTS(text) {
+            const modelsToTry = ["gemini-2.5-flash-preview-tts", "gemini-2.5-flash"];
+            const selectedVoice = ttsVoiceSelect ? ttsVoiceSelect.value : "Charon";
+            const cleanText = text
+                .replace(/[*#_`~>\[\]]/g, " ")
+                .replace(/NEXUS-01/gi, "Nexus 01")
+                .replace(/\s+/g, " ")
+                .trim();
+
+            for (const model of modelsToTry) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    const promptText = model.includes("tts")
+                        ? `Sakit, səmimi, təbii və aydın kişi səsi ilə, tələsmədən, Azərbaycan dilinin düzgün vurğusu və təbii fasilələri ilə oxu: ${cleanText}`
+                        : `Aşağıdakı mətni sakit, təbii və aydın kişi səsi ilə, tələsmədən Azərbaycan dilində ucadan oxu (əlavə söz demə, yalnız mətni oxu): "${cleanText}"`;
+
+                    const payload = {
+                        contents: [{
+                            parts: [{ text: promptText }]
+                        }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: {
+                                        voiceName: selectedVoice
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    const res = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    const parts = data?.candidates?.[0]?.content?.parts || [];
+                    const audioPart = parts.find(p => p.inlineData && p.inlineData.mimeType && p.inlineData.mimeType.startsWith("audio/"));
+
+                    if (audioPart && audioPart.inlineData.data) {
+                        const mime = audioPart.inlineData.mimeType.toLowerCase();
+                        let audioUrl = "";
+
+                        if (mime.includes("pcm") || mime.includes("l16") || !mime.includes("wav")) {
+                            const rateMatch = mime.match(/rate=(\d+)/);
+                            const sampleRate = rateMatch ? parseInt(rateMatch[1]) : 24000;
+                            audioUrl = pcmBase64ToWavUrl(audioPart.inlineData.data, sampleRate);
+                        } else {
+                            audioUrl = `data:${audioPart.inlineData.mimeType};base64,${audioPart.inlineData.data}`;
+                        }
+
+                        return await new Promise((resolve) => {
+                            const audio = new Audio(audioUrl);
+                            audio.preload = "auto";
+                            currentAudioElement = audio;
+                            audio.onplay = () => setRobotState("SPEAK");
+                            audio.onended = () => {
+                                setRobotState("IDLE");
+                                if (audioUrl.startsWith("blob:")) URL.revokeObjectURL(audioUrl);
+                                resolve(true);
+                            };
+                            audio.onerror = () => {
+                                setRobotState("IDLE");
+                                resolve(false);
+                            };
+                            audio.play().catch(() => resolve(false));
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`Cloud TTS (${model}) keçildi:`, e);
+                }
+            }
+            return false;
+        }
+
+        function speakWithAndroidApkBridge(text) {
+            const cleanText = normalizeTextForClassicTTS(text);
+            let triggered = false;
+
+            try {
+                if (window.AndroidTTS && typeof window.AndroidTTS.speak === "function") {
+                    window.AndroidTTS.speak(cleanText);
+                    triggered = true;
+                } else if (window.Android && typeof window.Android.speak === "function") {
+                    window.Android.speak(cleanText);
+                    triggered = true;
+                } else if (window.AppInventor && typeof window.AppInventor.setWebViewString === "function") {
+                    window.AppInventor.setWebViewString("TTS:" + cleanText);
+                    triggered = true;
+                }
+            } catch (e) {
+                console.warn("Android APK TTS xətası:", e);
+            }
+
+            if (triggered) {
+                setRobotState("SPEAK");
+                const duration = Math.max(2400, Math.min(9500, cleanText.length * 78));
+                setTimeout(() => setRobotState("IDLE"), duration);
+                return true;
+            }
+            return false;
+        }
+
+        function speakWithBrowserTTS(text) {
+            if (!("speechSynthesis" in window)) {
+                setRobotState("SPEAK");
+                setTimeout(() => setRobotState("IDLE"), Math.min(5000, text.length * 65));
+                return;
+            }
+
+            window.speechSynthesis.cancel();
+            const speechReadyText = normalizeTextForClassicTTS(text);
+            const utterance = new SpeechSynthesisUtterance(speechReadyText);
+
+            const voices = window.speechSynthesis.getVoices();
+            const maleKeywords = ["male", "erkek", "tolga", "mehmet", "ahmet", "demir", "emre", "david", "daniel"];
+            const bestVoice =
+                voices.find(v => v.lang.toLowerCase().includes("az") && maleKeywords.some(k => v.name.toLowerCase().includes(k))) ||
+                voices.find(v => v.lang.toLowerCase().includes("az")) ||
+                voices.find(v => v.lang.toLowerCase().includes("tr") && maleKeywords.some(k => v.name.toLowerCase().includes(k))) ||
+                voices.find(v => v.lang.toLowerCase().includes("tr-tr")) ||
+                voices.find(v => v.lang.toLowerCase().includes("tr")) ||
+                voices[0];
+
+            if (bestVoice) {
+                utterance.voice = bestVoice;
+                utterance.lang = bestVoice.lang;
+            } else {
+                utterance.lang = "tr-TR";
+            }
+
+            utterance.rate = 0.93;
+            utterance.pitch = 0.88;
+            utterance.volume = 1.0;
+
+            utterance.onstart = () => setRobotState("SPEAK");
+            utterance.onend = () => setRobotState("IDLE");
+            utterance.onerror = () => setRobotState("IDLE");
+
+            setTimeout(() => {
+                window.speechSynthesis.speak(utterance);
+            }, 60);
+        }
+
+        async function speakText(text) {
+            unlockAudioContext();
+            stopAllSpeech();
+
+            if (!chkTts.checked) {
+                setRobotState("SPEAK");
+                setTimeout(() => setRobotState("IDLE"), Math.min(4500, text.length * 60));
+                return;
+            }
+
+            const mode = ttsEngineSelect.value;
+
+            if (mode === "apk") {
+                if (!speakWithAndroidApkBridge(text)) {
+                    showToast("APK TTS Bridge tapılmadı, Cihaz səsi işlədilir.", "info");
+                    speakWithBrowserTTS(text);
+                }
+                return;
+            }
+
+            if (mode === "browser") {
+                speakWithBrowserTTS(text);
+                return;
+            }
+
+            if (mode === "cloud") {
+                setRobotState("SPEAK");
+                const ok = await speakWithGeminiCloudTTS(text);
+                if (!ok) {
+                    showToast("AI səs xidməti cavab vermədi, cihaz səsinə keçildi.", "error");
+                    speakWithBrowserTTS(text);
+                }
+                return;
+            }
+
+            if (window.AndroidTTS || (window.Android && window.Android.speak)) {
+                speakWithAndroidApkBridge(text);
+                return;
+            }
+
+            const cloudSuccess = await speakWithGeminiCloudTTS(text);
+            if (!cloudSuccess) {
+                if (!speakWithAndroidApkBridge(text)) {
+                    speakWithBrowserTTS(text);
+                }
+            }
+        }
+
+        document.getElementById("btn-test-voice").addEventListener("click", () => {
+            unlockAudioContext();
+            const testMsg = "Salam. Mən Nexus 01 robotuyam. Sol və sağ OLED göz ekranlarım aktivdir. Sizə bu gün necə kömək edə bilərəm?";
+            aiResponseEl.textContent = testMsg;
+            speakText(testMsg);
+        });
+
+        // ==========================================
+        // 8. ETİBARLI SƏS TANIMA (STT)
+        // ==========================================
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isRecognizing = false;
+        let sttLang = "az-AZ";
+        let finalTranscriptBuffer = "";
+
+        function setupSpeechRecognition() {
+            if (!SpeechRecognition) return;
+            recognition = new SpeechRecognition();
+            recognition.lang = sttLang;
+            recognition.interimResults = true;
+            recognition.continuous = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                isRecognizing = true;
+                finalTranscriptBuffer = "";
+                btnMic.classList.add("listening-pulse", "from-emerald-400", "to-teal-500");
+                setRobotState("LISTEN");
+                userTranscriptEl.textContent = `Dinləyirəm (${sttLang})... Danışın`;
+            };
+
+            recognition.onresult = (event) => {
+                let interim = "";
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const txt = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscriptBuffer += txt;
+                    } else {
+                        interim += txt;
+                    }
+                }
+                const liveText = (finalTranscriptBuffer || interim).trim();
+                if (liveText) {
+                    userTranscriptEl.textContent = `Siz: ${liveText}`;
+                }
+                if (finalTranscriptBuffer.trim()) {
+                    const question = finalTranscriptBuffer.trim();
+                    finalTranscriptBuffer = "";
+                    handleUserQuestion(question);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                isRecognizing = false;
+                btnMic.classList.remove("listening-pulse", "from-emerald-400", "to-teal-500");
+
+                if ((event.error === "language-not-supported" || event.error === "service-not-allowed") && sttLang === "az-AZ") {
+                    sttLang = "tr-TR";
+                    showToast("Cihazda az-AZ səs paketi yoxdur, tr-TR rejiminə keçildi.", "info");
+                    setupSpeechRecognition();
+                    setTimeout(() => {
+                        try { recognition.start(); } catch (e) {}
+                    }, 300);
+                    return;
+                }
+
+                if (event.error === "not-allowed") {
+                    showToast("Mikrofon icazəsi verilməyib! Telefon ayarlarından icazə verin.", "error");
+                } else if (event.error !== "no-speech" && event.error !== "aborted") {
+                    showToast("Səs tanıma xətası: " + event.error, "error");
+                }
+                setRobotState("IDLE");
+            };
+
+            recognition.onend = () => {
+                isRecognizing = false;
+                btnMic.classList.remove("listening-pulse", "from-emerald-400", "to-teal-500");
+                if (robotState === "LISTEN") {
+                    setRobotState("IDLE");
+                }
+            };
+        }
+
+        setupSpeechRecognition();
+
+        btnMic.addEventListener("click", () => {
+            unlockAudioContext();
+            stopAllSpeech();
+
+            if (!recognition) {
+                showToast("Bu WebView/brauzerdə səs tanıma dəstəklənmir. Aşağıdan yazın.", "error");
+                return;
+            }
+            if (isRecognizing) {
+                recognition.stop();
+            } else {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    setupSpeechRecognition();
+                    setTimeout(() => { try { recognition.start(); } catch (err) {} }, 150);
+                }
+            }
+        });
+
+        // ==========================================
+        // 9. GEMINI AI İNTEQRASİYASI
+        // ==========================================
+        async function askGemini(question) {
+            const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3-flash-preview"];
+            const todayAz = getCurrentDateAzerbaijani();
+
+            const payload = {
+                contents: [{ parts: [{ text: question }] }],
+                systemInstruction: {
+                    parts: [{
+                        text: `Sən NEXUS-01 adlı ağıllı, mehriban və fiziki gövdəsi (2 ədəd OLED göz ekranı və hərəkətli başı) olan bir robotsan. Bugünkü dəqiq tarix: ${todayAz} (hazırda 18 Noyabr 2026-cı ildir). Tarix və ya il soruşulduqda mütləq 18 Noyabr 2026-cı il olduğunu bildir. İstifadəçinin bütün suallarına Azərbaycan dilində, çox aydın, səmimi və təbii danışıq dilinə uyğun (maksimum 2-3 qısa cümlə ilə) cavab ver. Mətndə ulduz (*), emoji, mötərizə və ya mürəkkəb işarələr qətiyyən istifadə etmə ki, səsli oxunuş təmiz səslənsin.`
+                    }]
+                }
+            };
+
+            let lastError = null;
+            for (const model of models) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        lastError = new Error(`HTTP ${response.status}`);
+                        continue;
+                    }
+                    const data = await response.json();
+                    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (reply) return reply.trim();
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+            throw lastError || new Error("Cavab alınmadı");
+        }
+
+        async function handleUserQuestion(question) {
+            const cleanQ = question.trim();
+            if (!cleanQ) return;
+
+            unlockAudioContext();
+            userTranscriptEl.textContent = `Siz: ${cleanQ}`;
+            aiResponseEl.textContent = "Düşünürəm...";
+            setRobotState("THINK");
+
+            try {
+                const answer = await askGemini(cleanQ);
+                aiResponseEl.textContent = answer;
+                await speakText(answer);
+            } catch (error) {
+                const fallbackMsg = "Bağışlayın, hazırda internet və ya API açarı bağlantısında problem var.";
+                aiResponseEl.textContent = fallbackMsg;
+                await speakText(fallbackMsg);
+            }
+        }
+
+        document.getElementById("btn-send").addEventListener("click", () => {
+            const val = textPrompt.value;
+            if (val.trim()) {
+                textPrompt.value = "";
+                handleUserQuestion(val);
+            }
+        });
+
+        textPrompt.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                const val = textPrompt.value;
+                if (val.trim()) {
+                    textPrompt.value = "";
+                    handleUserQuestion(val);
+                }
+            }
+        });
+
+        // ==========================================
+        // 10. TƏLİMAT MODALI VƏ BAŞLANĞIC
+        // ==========================================
+        const guideModal = document.getElementById("guide-modal");
+        document.getElementById("btn-guide").addEventListener("click", () => {
+            guideModal.classList.remove("hidden");
+            guideModal.classList.add("flex");
+        });
+        document.getElementById("btn-close-guide").addEventListener("click", () => {
+            guideModal.classList.add("hidden");
+            guideModal.classList.remove("flex");
+        });
+
+        function copyArduinoCode() {
+            const codeText = document.getElementById("arduino-code").innerText;
+            const textarea = document.createElement("textarea");
+            textarea.value = codeText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+            showToast("2x OLED Arduino kodu kopyalandı!", "success");
+        }
+
+        window.onload = () => {
+            resizeCanvas();
+            checkBridgeEnvironment();
+            document.getElementById("api-key-input").value = apiKey;
+            document.getElementById("current-date-badge").textContent = getCurrentDateAzerbaijani();
+            requestAnimationFrame(drawOledFace);
+
+            if ("speechSynthesis" in window) {
+                window.speechSynthesis.getVoices();
+                window.speechSynthesis.onvoiceschanged = () => {
+                    window.speechSynthesis.getVoices();
+                };
+            }
+        };
+    </script>
+</body>
+                                  </html>
